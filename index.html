@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scholarship Viewer</title>
+
+    <!-- Bootstrap 5.3 CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Font Awesome -->
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Google Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        background-color: #f8f9fb;
+        font-family: "Poppins", sans-serif;
+      }
+
+      h2.hero-title {
+        font-weight: 700;
+        color: #1f2d3d;
+      }
+
+      .card {
+        border: none;
+        border-radius: 1rem;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-4px);
+      }
+
+      .card-header {
+        background: linear-gradient(135deg, #4e73df, #1cc88a);
+        color: #fff;
+        font-weight: 600;
+        border-top-left-radius: 1rem;
+        border-top-right-radius: 1rem;
+      }
+
+      .badge {
+        font-size: 0.75rem;
+      }
+
+      .list-group-item {
+        border: none;
+        background-color: #fefefe;
+        border-radius: 0.5rem;
+        margin-bottom: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+
+      .no-data {
+        color: #6c757d;
+        font-style: italic;
+      }
+
+      footer {
+        margin-top: 4rem;
+        text-align: center;
+        color: #adb5bd;
+        font-size: 0.875rem;
+      }
+
+      .form-select-lg {
+        border-radius: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container py-5">
+      <h2 class="mb-4 text-center hero-title">
+        🎓 Scholarships, Courses, Groups & Lectures
+      </h2>
+
+      <!-- Scholarship Selector -->
+      <div class="mb-4">
+        <label for="scholarshipSelect" class="form-label fw-semibold"
+          >Choose a Scholarship</label
+        >
+        <select
+          id="scholarshipSelect"
+          class="form-select form-select-lg shadow-sm"
+        >
+          <option disabled selected>Loading scholarships...</option>
+        </select>
+      </div>
+
+      <!-- Loading Spinner -->
+      <div
+        id="loading"
+        class="alert alert-primary d-none text-center shadow-sm"
+        role="alert"
+      >
+        <i class="fas fa-spinner fa-spin me-2"></i> Loading data...
+      </div>
+
+      <!-- Error Alert -->
+      <div
+        id="error"
+        class="alert alert-danger d-none shadow-sm"
+        role="alert"
+      ></div>
+
+      <!-- Output Area -->
+      <div id="output" class="d-none">
+        <div class="card mb-5">
+          <div
+            class="card-header d-flex align-items-center justify-content-between"
+          >
+            <div>
+              <i class="fas fa-graduation-cap me-2"></i>
+              <span id="scholarshipName"></span>
+            </div>
+            <small class="text-white-50"
+              >ID: <span id="scholarshipId"></span
+            ></small>
+          </div>
+          <div class="card-body">
+            <h5 class="fw-semibold">📚 Courses</h5>
+            <div id="coursesContainer" class="mt-3">
+              <p class="no-data">No courses found.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      © 2025 Scholarship Viewer | Built with ❤️ using Bootstrap & Font Awesome
+    </footer>
+
+    <!-- JS -->
+    <script>
+      const apiUrl = "https://shark-app-s8ndy.ondigitalocean.app/api";
+      const token = "194|yrry7sZwRINcUvWTgCCOmhKDizivrR08zlMeDbm9b0d735b4";
+
+      const scholarshipSelect = document.getElementById("scholarshipSelect");
+      const output = document.getElementById("output");
+      const loading = document.getElementById("loading");
+      const error = document.getElementById("error");
+
+      const scholarshipNameEl = document.getElementById("scholarshipName");
+      const scholarshipIdEl = document.getElementById("scholarshipId");
+      const coursesContainer = document.getElementById("coursesContainer");
+
+      async function loadScholarships() {
+        try {
+          const res = await fetch(`${apiUrl}/scholarships`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!res.ok) throw new Error("Failed to load scholarships");
+          const data = await res.json();
+          populateDropdown(data.data);
+        } catch (err) {
+          console.error(err);
+          error.textContent = "Error loading scholarships.";
+          error.classList.remove("d-none");
+        }
+      }
+
+      function populateDropdown(scholarships) {
+        scholarshipSelect.innerHTML =
+          "<option disabled selected>Select a scholarship</option>";
+        scholarships.forEach((scholarship) => {
+          const option = document.createElement("option");
+          option.value = scholarship.id;
+          option.textContent = scholarship.name;
+          scholarshipSelect.appendChild(option);
+        });
+      }
+
+      scholarshipSelect.addEventListener("change", () => {
+        const scholarshipId = scholarshipSelect.value;
+        if (!scholarshipId) return;
+
+        loading.classList.remove("d-none");
+        output.classList.add("d-none");
+        error.classList.add("d-none");
+
+        fetch(`${apiUrl}/scholarships/${scholarshipId}/related-data`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error("Failed to fetch scholarship details");
+            return res.json();
+          })
+          .then((data) => {
+            renderData(data);
+            loading.classList.add("d-none");
+            output.classList.remove("d-none");
+          })
+          .catch((err) => {
+            console.error(err);
+            error.textContent = err.message;
+            error.classList.remove("d-none");
+            loading.classList.add("d-none");
+          });
+      });
+
+      function renderData(response) {
+        const scholarship = response.scholarship;
+        const courses = response.courses;
+
+        scholarshipNameEl.textContent = scholarship.name || "N/A";
+        scholarshipIdEl.textContent = scholarship.id || "N/A";
+        coursesContainer.innerHTML = "";
+
+        if (!courses || courses.length === 0) {
+          coursesContainer.innerHTML =
+            '<p class="no-data">No courses assigned.</p>';
+          return;
+        }
+
+        courses.forEach((course, courseIndex) => {
+          const courseAccordionId = `courseAccordion${courseIndex}`;
+          let groupsHTML = "";
+
+          if (course.groups && course.groups.length > 0) {
+            course.groups.forEach((group, groupIndex) => {
+              const groupCollapseId = `groupCollapse${courseIndex}_${groupIndex}`;
+              const groupHeaderId = `groupHeader${courseIndex}_${groupIndex}`;
+
+              let lecturesHTML = "";
+              if (group.lectures && group.lectures.length > 0) {
+                lecturesHTML += '<ul class="list-group list-group-flush">';
+                group.lectures.forEach((lecture) => {
+                  const start = new Date(lecture.start_time).toLocaleString();
+                  const end = new Date(lecture.end_time).toLocaleString();
+                  lecturesHTML += `
+            <li class="list-group-item">
+              <i class="fas fa-video me-2"></i>
+              ${lecture.name}
+              <small class="text-muted ms-2">(${start} → ${end})</small>
+            </li>`;
+                });
+                lecturesHTML += "</ul>";
+              } else {
+                lecturesHTML = '<p class="no-data ms-3">No lectures found.</p>';
+              }
+
+              groupsHTML += `
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="${groupHeaderId}">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${groupCollapseId}" aria-expanded="false" aria-controls="${groupCollapseId}">
+              <i class="fas fa-calendar-alt me-2"></i> ${group.name}
+              <span class="badge bg-secondary ms-2">Code: ${group.code}</span>
+            </button>
+          </h2>
+          <div id="${groupCollapseId}" class="accordion-collapse collapse" aria-labelledby="${groupHeaderId}" >
+            <div class="accordion-body">
+              ${lecturesHTML}
+            </div>
+          </div>
+        </div>`;
+            });
+
+            groupsHTML = `
+      <div class="accordion" id="${courseAccordionId}-groups">
+        ${groupsHTML}
+      </div>`;
+          } else {
+            groupsHTML =
+              '<p class="no-data ms-3">No groups or lectures found.</p>';
+          }
+
+          const courseAccordion = document.createElement("div");
+          courseAccordion.className = "accordion mb-4";
+          courseAccordion.id = courseAccordionId;
+
+          courseAccordion.innerHTML = `
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="heading${courseIndex}">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${courseIndex}" aria-expanded="false" aria-controls="collapse${courseIndex}">
+          <i class="fas fa-book-open me-2"></i>
+          ${course.name}
+          <span class="badge bg-success ms-2">Groups: ${
+            course.groups?.length || 0
+          }</span>
+        </button>
+      </h2>
+      <div id="collapse${courseIndex}" class="accordion-collapse collapse" aria-labelledby="heading${courseIndex}" data-bs-parent="#${courseAccordionId}">
+        <div class="accordion-body">
+          ${groupsHTML}
+        </div>
+      </div>
+    </div>
+  `;
+
+          coursesContainer.appendChild(courseAccordion);
+        });
+      }
+
+      loadScholarships();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
